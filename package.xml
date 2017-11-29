@@ -1,0 +1,19 @@
+<?xml version="1.0"?>
+<package>
+  <name>dep_memory</name>
+  <version>0.0.0</version>
+  <description>dep_memory</description>
+
+  <maintainer email="orpana.markus@gmail.com">Markus Orpana</maintainer>
+  <author>Markus Orpana</author>
+  <license>BSD</license>
+
+  <buildtool_depend>catkin</buildtool_depend>
+  <build_depend>rospy</build_depend>
+  <build_depend>roboy_dep</build_depend>
+  <build_depend>roboy_communication_middleware</build_depend>
+
+  <run_depend>rospy</run_depend>
+  <run_depend>roboy_dep</run_depend>
+  <run_depend>roboy_communication_middleware</run_depend>
+</package>
