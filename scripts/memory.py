@@ -248,9 +248,10 @@ def trigger_callback(msg):
 
 def trigger_callback_ind(msg):
 	#t0 = time.time()
-	pos_encoder = scalar_sdr(41,3,-100000.0,100000.0,shape=(6,1),neg=False)
-	vel_encoder = scalar_sdr(5,1,-70.0,70.0,shape=(6,1),neg=False)
-
+	#pos_encoder = scalar_sdr(31,2,-100000.0,100000.0,shape=(6,1),neg=False)
+	#vel_encoder = scalar_sdr(5,1,-70.0,70.0,shape=(6,1),neg=False)
+	pos_encoder = neurons_ind["pos_encoder"]
+	vel_encoder = neurons_ind["vel_encoder"]
 	try: 
 		sess
 	except NameError:
@@ -333,6 +334,7 @@ def trigger_callback_ind(msg):
 	if np.array(trigger).any():
 		try:
 			dep_matrix_pub.publish(dep_matrix_msg)
+			sensor_delay(brain_id_to_behv_id[new_brain_id])
 			old_brain_id = new_brain_id
 			del dep_matrix_msg
 			#print 1
@@ -412,6 +414,26 @@ def callback_lam(msg):
 	dep_matrix_msg = roboy_dep.msg.depMatrix()
 	dep_matrix_msg = msg
 
+def sensor_delay(id_):
+	#global delay
+	#global bases
+	#half_period = int(len(bases[id_][0])/2.)
+	print delay
+	pos = bases[id_][0][-delay:]
+	msg = roboy_dep.msg.depMatrix()
+	for i in range(delay):
+		cArray = roboy_dep.msg.cArray()
+		cArray.cArray = pos[i]
+		cArray.size = pos[0].shape[0] # = 14
+		msg.depMatrix.append(cArray)
+	msg.size = delay
+	sensor_delay_pub.publish(msg)
+
+def callback_depParam(msg):
+	global delay
+	delay = msg.delay
+	#print delay
+
 def main():
 	rospy.init_node('dep_memory', anonymous=True)
 	
@@ -424,11 +446,25 @@ def main():
 		hnns[index].setIter(600)
 	'''
 
+	fb = pickle.load(open("/home/roboy/dep/dep_data/bases/fb.pickle"))
+	fs = pickle.load(open("/home/roboy/dep/dep_data/bases/fs.pickle"))
+	sd = pickle.load(open("/home/roboy/dep/dep_data/bases/sd.pickle"))
+	zero = [np.zeros(fb[0].shape),np.zeros(fb[1].shape),np.zeros(fb[2].shape),np.zeros(fb[3].shape)]
+
+	global bases
+	bases = {"fb": fb, "fs": fs, "sd": sd, "zero": zero}
+	global sensor_delay_pub
+	sensor_delay_pub = rospy.Publisher('/roboy_dep/sensor_delay', roboy_dep.msg.depMatrix,queue_size=1)
+
 	rospy.Subscriber("roboy_dep/brain_id", roboy_dep.msg.brain_id, callback_lam, queue_size=1)
 	global lam
 	pickle_in = open("/home/roboy/dep/dep_memory/lam.pickle")
 	lam = pickle.load(pickle_in)
-	
+
+	rospy.Subscriber("/roboy_dep/depParameters", roboy_dep.msg.depParameters, callback_depParam, queue_size = 1)
+	global delay
+	delay = 50
+
 	'''
 	global neurons_pos
 	pickle_in = open("/home/roboy/dep/dep_memory/neurons_pos.pickle")
