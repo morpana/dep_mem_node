@@ -247,87 +247,67 @@ def trigger_callback(msg):
 '''
 
 def trigger_callback_ind(msg):
-	#t0 = time.time()
-	#pos_encoder = scalar_sdr(31,2,-100000.0,100000.0,shape=(6,1),neg=False)
-	#vel_encoder = scalar_sdr(5,1,-70.0,70.0,shape=(6,1),neg=False)
+
 	pos_encoder = neurons_ind["pos_encoder"]
 	vel_encoder = neurons_ind["vel_encoder"]
+
 	try: 
 		sess
 	except NameError:
+		
+		global pos_nodes
+		global vel_nodes
+
+		global w_pos
+		global w_vel
+
+		global trigger_activation
+
+		with tf.name_scope("input"):
+			pos_nodes = tf.placeholder(tf.float32, [None,6,pos_encoder.n,1], name="motor_pos")
+			vel_nodes = tf.placeholder(tf.float32, [None,6,vel_encoder.n,1], name="motor_vel")
+
+		with tf.name_scope("weights"):
+			w_pos = tf.placeholder(tf.float32, [None,6,pos_encoder.n,1], name="pos_weights")
+			w_vel = tf.placeholder(tf.float32, [None,6,pos_encoder.n,vel_encoder.n], name="vel_weights")
+
+		with tf.name_scope("trigger"):
+			vel_input = tf.matmul(w_vel,vel_nodes)
+			vel_inhibitor = tf.nn.relu(tf.sign(vel_input))
+			pos_input = w_pos*pos_nodes
+			motor_sum = pos_input + (vel_inhibitor - 1)
+			motor_activation = tf.nn.relu(tf.sign(motor_sum))
+			trigger_sum_0 = tf.reduce_sum(motor_activation, axis = 2) 
+			trigger_sum_1 = tf.reduce_sum(trigger_sum_0 - 0.99, axis = 1)
+			trigger_activation = tf.nn.relu(tf.sign(trigger_sum_1))
+
 		global sess
 		sess = tf.Session()
 		init = tf.global_variables_initializer()
 		sess.run(init)
-		
-		global pos_nodes
-		global vel_nodes
-		global trigger_bias
-		global w_pos
-		global w_vel
-		global w_trig
-
-		with tf.name_scope("input"):
-			pos_nodes = tf.placeholder(tf.float32, [None,6,pos_encoder.n], name="motor_pos")
-			vel_nodes = tf.placeholder(tf.float32, [None,6,pos_encoder.n,vel_encoder.n], name="motor_vel")
-			trigger_bias = tf.placeholder(tf.float32, [None,6], name = "trigger_bias")
-
-		with tf.name_scope("weights"):
-			w_pos = tf.placeholder(tf.float32, [None,6,pos_encoder.n], name="pos_weights")
-			w_vel = tf.placeholder(tf.float32, [None,6,pos_encoder.n,vel_encoder.n], name="vel_weights")
-			w_trig = tf.placeholder(tf.float32, [None,6], name = "trigger_weights")
-
-		with tf.name_scope("trigger"):
-			vel_input = tf.multiply(w_vel,vel_nodes)
-			vel_inhibitor = tf.reduce_sum(tf.nn.relu(tf.sign(vel_input)),axis=3)
-			pos_input = tf.multiply(pos_nodes,w_pos)
-			motor_sum = pos_input + vel_inhibitor*-1
-			motor_activation = tf.nn.relu(tf.sign(motor_sum))
-			trigger_sum_0 = tf.reduce_sum(motor_activation, axis = 2)
-			bias = tf.multiply(trigger_bias,w_trig)
-			trigger_sum_1 = tf.reduce_sum(trigger_sum_0 + bias,axis=1)
-			global trigger_activation
-			trigger_activation = tf.nn.relu(tf.sign(trigger_sum_1))
 
 	brain_id_to_behv_id = {0.125: "zero", 0.375: "fb", 0.625: "fs", 0.875: "sd"}
 
 	global old_brain_id
 	id_ = brain_id_to_behv_id[old_brain_id]
-	#print id_
-	#print msg
+
 	active_motors = [1,3,4,5,10,12]
 	pos = np.array(msg.position)[active_motors].reshape(6,1)
 	vel = np.array(msg.velocity)[active_motors].reshape(6,1)
-	#print "Pos: ", pos
-	#print "Vel: ", vel
-	#print 
-	pos_ = pos_encoder.encode_ndarray(np.array(pos).astype('float32')).reshape(1,6,pos_encoder.n)
-	vel_ = vel_encoder.encode_ndarray(np.array(vel).astype('float32')).reshape(1,6,vel_encoder.n)
-	#print "Pos_: ", pos_[0]
-	#print "Vel_: ", vel_[0]
-	#print 
-	a = np.zeros((1,6,pos_encoder.n,vel_encoder.n))
-	for k in range(1):
-		for i in range(6):
-			for j in range(pos_encoder.n):
-				a[k][i][j] = vel_[k][i].reshape(vel_encoder.n)
-	vel_ = a
+
+	pos_ = pos_encoder.encode_ndarray(np.array(pos).astype('float32')).reshape(1,6,pos_encoder.n,1)
+	vel_ = vel_encoder.encode_ndarray(np.array(vel).astype('float32')).reshape(1,6,vel_encoder.n,1)
 
 	global neurons_ind
-	weights_pos = neurons_ind[id_]["weights_pos"]
-	weights_vel = neurons_ind[id_]["weights_vel"]
-	trig_b = neurons_ind[id_]["trig_b"].reshape(1,6)
-	trig_w = neurons_ind[id_]["trig_w"].reshape(1,6)
+	weights_pos = np.array(neurons_ind[id_]["weights_pos"]).reshape(1,6,pos_encoder.n,1)
+	weights_vel = np.array(neurons_ind[id_]["weights_vel"]).reshape(1,6,pos_encoder.n,vel_encoder.n)
 
-	#print weights_pos
-	#print pos_.shape, vel_.shape, weights_pos.shape, weights_vel.shape, trig_b.shape, trig_w.shape
 	#global trigger
-	trigger.append(sess.run(trigger_activation,{pos_nodes: pos_.reshape(1,6,pos_encoder.n), vel_nodes: vel_.reshape(1,6,pos_encoder.n,vel_encoder.n), w_pos: weights_pos.reshape(1,6,pos_encoder.n), w_vel: weights_vel.reshape(1,6,pos_encoder.n,vel_encoder.n), trigger_bias: trig_b, w_trig: trig_w}))
+	trigger.append(sess.run(trigger_activation,{pos_nodes: pos_, vel_nodes: vel_, w_pos: weights_pos, w_vel: weights_vel}))
 
 	global dep_matrix_msg
 	global dep_matrix_pub
 	global new_brain_id
-	#print old_brain_id, new_brain_id
 	
 	if len(trigger)>1:
 		trigger.pop(0)
@@ -340,13 +320,8 @@ def trigger_callback_ind(msg):
 			#print 1
 		except NameError:
 			pass
-			#print "NameError: dep_matrix_msg not defined!"
 	else:
 		pass
-		#print 0
-	
-	#print time.time()-t0
-	#print "Trigger: ", np.array(trigger).any()
 
 class LAM:
 	def __init__(self,shape,weights=None):
@@ -450,9 +425,9 @@ def main():
 	fs = pickle.load(open("/home/roboy/dep/dep_data/bases/fs.pickle"))
 	sd = pickle.load(open("/home/roboy/dep/dep_data/bases/sd.pickle"))
 	zero = [np.zeros(fb[0].shape),np.zeros(fb[1].shape),np.zeros(fb[2].shape),np.zeros(fb[3].shape)]
-
 	global bases
 	bases = {"fb": fb, "fs": fs, "sd": sd, "zero": zero}
+
 	global sensor_delay_pub
 	sensor_delay_pub = rospy.Publisher('/roboy_dep/sensor_delay', roboy_dep.msg.depMatrix,queue_size=1)
 
