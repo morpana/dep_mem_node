@@ -181,71 +181,66 @@ class scalar_sdr:
 			raise TypeError("Must provide tuple of array dimensions!")
 		self.ndarray_shape = shape
 
-'''
+
 def trigger_callback(msg):
+
+	pos_encoder = neurons_pos["pos_encoder"]
 
 	try:
 		sess
 	except NameError:
+		global pos_nodes
+
+		global w_pos
+
+		global trigger_activation
+
+		with tf.name_scope("input"):
+			pos_nodes = tf.placeholder(tf.float32, [None,6,pos_encoder.n], name="motor_pos")
+
+		with tf.name_scope("weights"):
+			w_pos = tf.placeholder(tf.float32, [None,6,pos_encoder.n], name="pos_weights")
+
+		with tf.name_scope("trigger"):
+			pos_input = tf.multiply(pos_nodes,w_pos)
+			motor_activation = tf.nn.relu(tf.sign(pos_input))
+			trigger_sum_0 = tf.reduce_sum(motor_activation, axis = 2)
+			trigger_sum_1 = tf.reduce_sum(trigger_sum_0 - 0.99,axis=1)
+			trigger_activation = tf.nn.relu(tf.sign(trigger_sum_1))
+
 		global sess
 		sess = tf.Session()
 		init = tf.global_variables_initializer()
 		sess.run(init)
 
-	#print msg
 	active_motors = [1,3,4,5,10,12]
 	pos = np.array(msg.position)[active_motors].reshape(6,1)
-	#print "Pos: ", pos
-	#print 
+	vel = np.array(msg.position)[active_motors].reshape(6,1)
 
-	pos_encoder = scalar_sdr(11,1,-100000.0,100000.0,shape=(6,1),neg=False)
 	pos_ = pos_encoder.encode_ndarray(np.array(pos).astype('float32')).reshape(1,6,pos_encoder.n)
-	#print "Pos_: ", pos_[0]
-	#print 
-
-	with tf.name_scope("input"):
-		pos_nodes = tf.placeholder(tf.float32, [None,6,pos_encoder.n], name="motor_pos")
-		trigger_bias = tf.placeholder(tf.float32, [None,6], name = "trigger_bias")
-
-	with tf.name_scope("weights"):
-		w_pos = tf.placeholder(tf.float32, [None,6,pos_encoder.n], name="pos_weights")
-		w_trig = tf.placeholder(tf.float32, [None,6], name = "trigger_weights")
-
-	with tf.name_scope("trigger"):
-		pos_input = tf.multiply(pos_nodes,w_pos)
-		motor_activation = tf.nn.relu(tf.sign(pos_input))
-		trigger_sum_0 = tf.reduce_sum(motor_activation, axis = 2)
-		bias = tf.multiply(trigger_bias,w_trig)
-		trigger_sum_1 = tf.reduce_sum(trigger_sum_0 + bias,axis=1)
-		trigger_activation = tf.nn.relu(tf.sign(trigger_sum_1))
-
-
 	#global neurons_pos
 	weights_pos = neurons_pos["weights_pos"]
-	trig_b = neurons_pos["trig_b"].reshape(1,6)
-	trig_w = neurons_pos["trig_w"].reshape(1,6)
+	
+	global new_brain_id
+	brain_id_to_behv_id = matrix_lam["brain_id_to_behv_id"]
 
-	#print weights_pos
-	#print pos_.shape, vel_.shape, weights_pos.shape, weights_vel.shape, trig_b.shape, trig_w.shape
-
-	trigger.append(sess.run(trigger_activation,{pos_nodes: pos_, w_pos: weights_pos, trigger_bias: trig_b, w_trig: trig_w}))
+	trigger.append(sess.run(trigger_activation,{pos_nodes: pos_, w_pos: weights_pos}))
 	if len(trigger)>1:
 		trigger.pop(0)
 	if np.array(trigger).any():
 		#global dep_matrix_pub
 		#global dep_matrix_msg
-		print 1
-		
-		try:
-			print "Published"
-			dep_matrix_pub.publish(dep_matrix_msg)
-		except NameError:
-			pass		
+		if new_brain_id != None:
+			try:
+				dep_matrix_pub.publish(dep_matrix_msg)
+				sensor_delay(brain_id_to_behv_id[new_brain_id],vel)
+				new_brain_id = None
+			except NameError:
+				pass		
 	else:
-		print 0
-	#print "Trigger: ", np.array(trigger).any()
-'''
+		pass
 
+'''
 def trigger_callback_ind(msg):
 
 	pos_encoder = neurons_ind["pos_encoder"]
@@ -286,7 +281,7 @@ def trigger_callback_ind(msg):
 		init = tf.global_variables_initializer()
 		sess.run(init)
 
-	brain_id_to_behv_id = {0.125: "zero", 0.375: "fb", 0.625: "fs", 0.875: "sd"}
+	brain_id_to_behv_id = matrix_lam["brain_id_to_behv_id"]
 
 	global old_brain_id
 	id_ = brain_id_to_behv_id[old_brain_id]
@@ -317,12 +312,11 @@ def trigger_callback_ind(msg):
 			sensor_delay(brain_id_to_behv_id[new_brain_id])
 			old_brain_id = new_brain_id
 			del dep_matrix_msg
-			#print 1
 		except NameError:
 			pass
 	else:
 		pass
-
+'''
 class LAM:
 	def __init__(self,shape,weights=None):
 		self.shape = shape
@@ -358,14 +352,16 @@ def callback_lam(msg):
 	#print "Brain id msg: %f \n" %msg.brain_id
 	#global lam
 
-	m_encoder = scalar_sdr(100,21,-0.25,0.25,(6,12),neg=False)
-	b_encoder = scalar_sdr(100,21,0.0,1.0,neg=False)
+	m_encoder = matrix_lam["matrix_encoder"]
+	b_encoder = matrix_lam["brain_encoder"]
 
 	global new_brain_id
 	new_brain_id = msg.brain_id
-	brain_sig = b_encoder.encode(new_brain_id)
-	mem = lam.recall(np.array(brain_sig))
+	#print new_brain_id
+	brain_sig = b_encoder.encode(float(new_brain_id))
+	mem = matrix_lam["lam"].recall(np.array(brain_sig))
 	matrix = m_encoder.decode_ndarray(np.array(mem).reshape((reduce(lambda x, y: x*y, m_encoder.ndarray_shape)*m_encoder.n,)))
+	#print matrix
 	flat = matrix.flatten()
 	active_motors = [1,3,4,5,10,12]
 	active_sensors = np.array(active_motors*2)
@@ -389,12 +385,16 @@ def callback_lam(msg):
 	dep_matrix_msg = roboy_dep.msg.depMatrix()
 	dep_matrix_msg = msg
 
-def sensor_delay(id_):
+def sensor_delay(id_,vel):
+	#delays_starts_up = {"fs": , "fb": , "sd:"} 
+	#delays_starts_down = {"fs": , "fb": , "sd:"}
 	#global delay
 	#global bases
 	#half_period = int(len(bases[id_][0])/2.)
-	print delay
+	#print delay
+	#starts = {"fb": 127, "fs": 50, "sd": 50, "zero":50}
 	pos = bases[id_][0][-delay:]
+	#pos = np.array([np.sin(np.arange(delay+15)*2*np.pi/len(bases[id_][0])+i*2.*np.pi/14.) for i in range(14)]).T
 	msg = roboy_dep.msg.depMatrix()
 	for i in range(delay):
 		cArray = roboy_dep.msg.cArray()
@@ -408,6 +408,10 @@ def callback_depParam(msg):
 	global delay
 	delay = msg.delay
 	#print delay
+
+def callback_triggerRef(msg):
+	trigger_ref["pos"] = msg.pos
+	trigger_ref["vel"] = msg.vel
 
 def main():
 	rospy.init_node('dep_memory', anonymous=True)
@@ -432,39 +436,50 @@ def main():
 	sensor_delay_pub = rospy.Publisher('/roboy_dep/sensor_delay', roboy_dep.msg.depMatrix,queue_size=1)
 
 	rospy.Subscriber("roboy_dep/brain_id", roboy_dep.msg.brain_id, callback_lam, queue_size=1)
-	global lam
-	pickle_in = open("/home/roboy/dep/dep_memory/lam.pickle")
-	lam = pickle.load(pickle_in)
+	global matrix_lam
+	pickle_in = open("/home/roboy/dep/dep_memory/mem.pickle")
+	matrix_lam = pickle.load(pickle_in)
 
 	rospy.Subscriber("/roboy_dep/depParameters", roboy_dep.msg.depParameters, callback_depParam, queue_size = 1)
 	global delay
 	delay = 50
 
-	'''
+	
 	global neurons_pos
 	pickle_in = open("/home/roboy/dep/dep_memory/neurons_pos.pickle")
 	neurons_pos = pickle.load(pickle_in)
 	
+
 	rospy.Subscriber("/roboy/middleware/MotorStatus", roboy_communication_middleware.msg.MotorStatus, trigger_callback, queue_size=1)
-	'''
+	
 	global dep_matrix_pub
 	dep_matrix_pub = rospy.Publisher('/roboy_dep/depLoadMatrix', roboy_dep.msg.depMatrix,queue_size=1)
 
-	#global dep_matrix_msg
+	'''
+	global trigger_ref
+	trigger_ref = {"pos": 0., "vel": 50.}
+	rospy.Subscriber("/roboy_dep/trigger_ref", roboy_dep.msg.trigger_ref,queue_size=1)
+	global motors_pos
+	motor_pos = []
+	'''
+	# THIS NEXT
+	#rospy.Subscriber("/roboy/middleware/MotorStatus", roboy_communication_middleware.msg.MotorStatus, trigger_callback_no_nn, queue_size=1)
 
+	'''
 	global neurons_ind
 	pickle_in = open("/home/roboy/dep/dep_memory/neurons_individual_behvs.pickle")
 	neurons_ind = pickle.load(pickle_in)
 	rospy.Subscriber("/roboy/middleware/MotorStatus", roboy_communication_middleware.msg.MotorStatus, trigger_callback_ind, queue_size=1)
+	'''
 
 	global trigger
 	trigger = []
 
 	global old_brain_id
-	old_brain_id = 0.125
+	old_brain_id = 0.0
 
 	global new_brain_id
-	new_brain_id = 0.125
+	new_brain_id = 0.0
 
 	rospy.spin()
 
