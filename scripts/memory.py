@@ -218,22 +218,26 @@ def trigger_callback(msg):
 	vel = np.array(msg.velocity)[active_motors].reshape(6,1)
 
 	pos_ = pos_encoder.encode_ndarray(np.array(pos).astype('float32')).reshape(1,6,pos_encoder.n)
-	#global neurons_pos
-	weights_pos = neurons_pos["weights_pos"]
-	
-	global new_brain_id
-	brain_id_to_behv_id = matrix_lam["brain_id_to_behv_id"]
 
-	trigger.append(sess.run(trigger_activation,{pos_nodes: pos_, w_pos: weights_pos}))
-	if len(trigger)>1:
-		trigger.pop(0)
-	if np.array(trigger).any():
-		#global dep_matrix_pub
-		#global dep_matrix_msg
-		if new_brain_id != None:
+	global new_brain_id
+	global old_brain_id
+	brain_id_to_behv_id = matrix_lam["brain_id_to_behv_id"]
+	weights_pos = np.array(neurons_pos[brain_id_to_behv_id[old_brain_id]]["weights_pos"]).reshape((1,6,pos_encoder.n))
+	#weights_pos = np.array(neurons_pos["weights_pos"]).reshape((1,6,pos_encoder.n))
+	#print weights_pos
+
+	trigger = sess.run(trigger_activation,{pos_nodes: pos_, w_pos: weights_pos})
+	global dep_matrix_msg
+	global up
+	#print up
+	if trigger == 1:
+		try:
 			dep_matrix_pub.publish(dep_matrix_msg)
-			sensor_delay(brain_id_to_behv_id[new_brain_id],vel)
-			new_brain_id = None
+			del dep_matrix_msg # this causes the transition to only be called once
+			sensor_delay(brain_id_to_behv_id[new_brain_id],up)
+			old_brain_id = new_brain_id
+		except NameError:
+			pass
 	else:
 		pass
 
@@ -382,8 +386,8 @@ def callback_lam(msg):
 	dep_matrix_msg = roboy_dep.msg.depMatrix()
 	dep_matrix_msg = msg
 
-def sensor_delay(id_,vel):
-	if vel[1] >= 0:
+def sensor_delay(id_,reverse=True):
+	if reverse:
 		i = int(len(bases[id_][0])/2.)
 		pos = bases[id_][0][-delay+i:i]
 	else:
@@ -403,9 +407,16 @@ def callback_depParam(msg):
 	delay = msg.delay
 	#print delay
 
+'''
 def callback_triggerRef(msg):
 	trigger_ref["pos"] = msg.pos
 	trigger_ref["vel"] = msg.vel
+'''
+
+def callback_transition_dir(msg):
+	global up
+	up = msg.up
+	#print up
 
 def main():
 	rospy.init_node('dep_memory', anonymous=True)
@@ -438,17 +449,16 @@ def main():
 	global delay
 	delay = 50
 
-	
 	global neurons_pos
 	pickle_in = open("/home/roboy/dep/dep_memory/neurons_pos.pickle")
 	neurons_pos = pickle.load(pickle_in)
-	
 
 	rospy.Subscriber("/roboy/middleware/MotorStatus", roboy_communication_middleware.msg.MotorStatus, trigger_callback, queue_size=1)
 	
 	global dep_matrix_pub
 	dep_matrix_pub = rospy.Publisher('/roboy_dep/depLoadMatrix', roboy_dep.msg.depMatrix,queue_size=1)
 
+	rospy.Subscriber("/roboy_dep/transition_direction", roboy_dep.msg.transition_direction, callback_transition_dir, queue_size = 1)
 	'''
 	global trigger_ref
 	trigger_ref = {"pos": 0., "vel": 50.}
@@ -465,9 +475,12 @@ def main():
 	neurons_ind = pickle.load(pickle_in)
 	rospy.Subscriber("/roboy/middleware/MotorStatus", roboy_communication_middleware.msg.MotorStatus, trigger_callback_ind, queue_size=1)
 	'''
+	global dep_matrix_msg
+	dep_matrix_msg = roboy_dep.msg.depMatrix()
 
 	global trigger
-	trigger = []
+	trigger = 1
+	#trigger = []
 
 	global old_brain_id
 	old_brain_id = 0.0
