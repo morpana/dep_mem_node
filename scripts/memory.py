@@ -215,7 +215,7 @@ def trigger_callback(msg):
 
 	active_motors = [1,3,4,5,10,12]
 	pos = np.array(msg.position)[active_motors].reshape(6,1)
-	vel = np.array(msg.position)[active_motors].reshape(6,1)
+	vel = np.array(msg.velocity)[active_motors].reshape(6,1)
 
 	pos_ = pos_encoder.encode_ndarray(np.array(pos).astype('float32')).reshape(1,6,pos_encoder.n)
 	#global neurons_pos
@@ -231,12 +231,9 @@ def trigger_callback(msg):
 		#global dep_matrix_pub
 		#global dep_matrix_msg
 		if new_brain_id != None:
-			try:
-				dep_matrix_pub.publish(dep_matrix_msg)
-				sensor_delay(brain_id_to_behv_id[new_brain_id],vel)
-				new_brain_id = None
-			except NameError:
-				pass		
+			dep_matrix_pub.publish(dep_matrix_msg)
+			sensor_delay(brain_id_to_behv_id[new_brain_id],vel)
+			new_brain_id = None
 	else:
 		pass
 
@@ -386,14 +383,11 @@ def callback_lam(msg):
 	dep_matrix_msg = msg
 
 def sensor_delay(id_,vel):
-	#delays_starts_up = {"fs": , "fb": , "sd:"} 
-	#delays_starts_down = {"fs": , "fb": , "sd:"}
-	#global delay
-	#global bases
-	#half_period = int(len(bases[id_][0])/2.)
-	#print delay
-	#starts = {"fb": 127, "fs": 50, "sd": 50, "zero":50}
-	pos = bases[id_][0][-delay:]
+	if vel[1] >= 0:
+		i = int(len(bases[id_][0])/2.)
+		pos = bases[id_][0][-delay+i:i]
+	else:
+		pos = bases[id_][0][-delay:]
 	#pos = np.array([np.sin(np.arange(delay+15)*2*np.pi/len(bases[id_][0])+i*2.*np.pi/14.) for i in range(14)]).T
 	msg = roboy_dep.msg.depMatrix()
 	for i in range(delay):
