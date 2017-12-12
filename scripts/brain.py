@@ -30,48 +30,177 @@ def initDepParams():
 	depParams.range = 5
 	return depParams
 
+def behavior_loaded(msg):
+	global next_behavior
+	next_behavior = True
+
+def vel_script(msg):
+	time.sleep(0.1)
+	velocity = 30
+	amplitude = 1.0
+	depParams.amplitude = amplitude
+	depParams.delay = velocity
+	dep_param_pub.publish(depParams)
+	while(velocity<90):
+		velocity += 1
+		depParams.delay = velocity
+		dep_param_pub.publish(depParams)
+		time.sleep(0.04)
+
 def run_script(msg):
+	global next_behavior
 	time.sleep(0.1)
 
-	tran_dir = roboy_dep.msg.transition_direction()
-	tran_dir.up = True
-	tran_dir_pub.publish(tran_dir)
-	brain_id = roboy_dep.msg.brain_id()
-	brain_id.brain_id = 21.
-	brain_id_pub.publish(brain_id)
-	time.sleep(1.0)
+	velocity = 80
+	amplitude = 0.70
+	depParams.amplitude = amplitude
+	depParams.delay = velocity
+	#duration = 0.2
+	dep_param_pub.publish(depParams)
+	for i in range(5):
+		tran_dir = roboy_dep.msg.transition_direction()
+		tran_dir.up = False
+		tran_dir_pub.publish(tran_dir)
+		brain_id = roboy_dep.msg.brain_id()
+		brain_id.brain_id = 42.
+		brain_id_pub.publish(brain_id)
+		print "brain_id: ", brain_id
+		next_behavior = False
+		while(not next_behavior):
+			print "sleeping"
+			time.sleep(0.1)
+		time.sleep(0.5)
+
+		'''
+		stop = roboy_dep.msg.stop()
+		stop.stop = True
+		stop_pub.publish(stop)
+		time.sleep(duration)
+		stop.stop = False
+		stop_pub.publish(stop)
+		'''
+
+		tran_dir = roboy_dep.msg.transition_direction()
+		tran_dir.up = False
+		tran_dir_pub.publish(tran_dir)
+		brain_id = roboy_dep.msg.brain_id()
+		brain_id.brain_id = 21.
+		brain_id_pub.publish(brain_id)
+		print "brain_id: ", brain_id
+		next_behavior = False
+		while(not next_behavior): 
+			print "sleeping"
+			time.sleep(0.1)
+		time.sleep(0.5)
+
+		tran_dir = roboy_dep.msg.transition_direction()
+		tran_dir.up = True
+		tran_dir_pub.publish(tran_dir)
+		brain_id = roboy_dep.msg.brain_id()
+		brain_id.brain_id = 42.
+		brain_id_pub.publish(brain_id)
+		print "brain_id: ", brain_id
+		next_behavior = False
+		while(not next_behavior): 
+			print "sleeping"
+			time.sleep(0.1)
+		time.sleep(0.5)
+
+		tran_dir = roboy_dep.msg.transition_direction()
+		tran_dir.up = True
+		tran_dir_pub.publish(tran_dir)
+		brain_id = roboy_dep.msg.brain_id()
+		brain_id.brain_id = 21.
+		brain_id_pub.publish(brain_id)
+		print "brain_id: ", brain_id
+		next_behavior = False
+		while(not next_behavior):
+			print "sleeping"
+			time.sleep(0.1)
+		time.sleep(0.5)
+
+		velocity -= 4
+		#duration -= 0.02
+		amplitude += 0.05
+		depParams.delay = velocity
+		dep_param_pub.publish(depParams)
+
+		'''
+		tran_dir = roboy_dep.msg.transition_direction()
+		tran_dir.up = True
+		tran_dir_pub.publish(tran_dir)
+		brain_id = roboy_dep.msg.brain_id()
+		brain_id.brain_id = 0.
+		brain_id_pub.publish(brain_id)
+		print "brain_id: ", brain_id
+		next_behavior = False
+		while(not next_behavior): 
+			print "sleeping"
+			time.sleep(0.1)
+		'''
+		print "\n"
+
+	for i in range(3):
+		tran_dir = roboy_dep.msg.transition_direction()
+		tran_dir.up = False
+		tran_dir_pub.publish(tran_dir)
+		brain_id = roboy_dep.msg.brain_id()
+		brain_id.brain_id = 42.
+		brain_id_pub.publish(brain_id)
+		print "brain_id: ", brain_id
+		next_behavior = False
+		while(not next_behavior):
+			print "sleeping"
+			time.sleep(0.1)
+		time.sleep(0.5)
+
+		tran_dir = roboy_dep.msg.transition_direction()
+		tran_dir.up = False
+		tran_dir_pub.publish(tran_dir)
+		brain_id = roboy_dep.msg.brain_id()
+		brain_id.brain_id = 21.
+		brain_id_pub.publish(brain_id)
+		print "brain_id: ", brain_id
+		next_behavior = False
+		while(not next_behavior): 
+			print "sleeping"
+			time.sleep(0.1)
+		time.sleep(0.5)
+
+		tran_dir = roboy_dep.msg.transition_direction()
+		tran_dir.up = True
+		tran_dir_pub.publish(tran_dir)
+		brain_id = roboy_dep.msg.brain_id()
+		brain_id.brain_id = 42.
+		brain_id_pub.publish(brain_id)
+		print "brain_id: ", brain_id
+		next_behavior = False
+		while(not next_behavior): 
+			print "sleeping"
+			time.sleep(0.1)
+		time.sleep(0.5)
+
+		tran_dir = roboy_dep.msg.transition_direction()
+		tran_dir.up = True
+		tran_dir_pub.publish(tran_dir)
+		brain_id = roboy_dep.msg.brain_id()
+		brain_id.brain_id = 21.
+		brain_id_pub.publish(brain_id)
+		print "brain_id: ", brain_id
+		next_behavior = False
+		while(not next_behavior):
+			print "sleeping"
+			time.sleep(0.1)
+		time.sleep(0.5)
+
 
 	tran_dir = roboy_dep.msg.transition_direction()
 	tran_dir.up = False
-	tran_dir_pub.publish(tran_dir)
-	brain_id = roboy_dep.msg.brain_id()
-	brain_id.brain_id = 42.
-	brain_id_pub.publish(brain_id)
-	time.sleep(1.0)
-
-	tran_dir = roboy_dep.msg.transition_direction()
-	tran_dir.up = False
-	tran_dir_pub.publish(tran_dir)
-	brain_id = roboy_dep.msg.brain_id()
-	brain_id.brain_id = 21.
-	brain_id_pub.publish(brain_id)
-	time.sleep(1.0)
-
-	tran_dir = roboy_dep.msg.transition_direction()
-	tran_dir.up = True
-	tran_dir_pub.publish(tran_dir)
-	brain_id = roboy_dep.msg.brain_id()
-	brain_id.brain_id = 42.
-	brain_id_pub.publish(brain_id)
-	time.sleep(1.0)
-
-	tran_dir = roboy_dep.msg.transition_direction()
-	tran_dir.up = True
 	tran_dir_pub.publish(tran_dir)
 	brain_id = roboy_dep.msg.brain_id()
 	brain_id.brain_id = 0.
 	brain_id_pub.publish(brain_id)
-	time.sleep(1.0)
+	print "brain_id: ", brain_id
 
 def main():
 	rospy.init_node('brain', anonymous=True)
@@ -89,6 +218,11 @@ def main():
 	dep_param_pub = rospy.Publisher('/roboy_dep/depParameters', roboy_dep.msg.depParameters,queue_size=1)
 
 	rospy.Subscriber("/roboy_dep/start_script", roboy_dep.msg.start_script, run_script, queue_size = 1)
+
+	global next_behavior
+	next_behavior = True
+
+	rospy.Subscriber('/roboy_dep/depLoadMatrix', roboy_dep.msg.depMatrix, behavior_loaded, queue_size = 1)
 
 	rospy.spin()
 

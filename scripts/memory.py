@@ -12,7 +12,7 @@ import tensorflow as tf
 
 # Implementation for asynchronous Hopfield neural network
 # Note: memory capacity approx. 0.14*nodes
-'''
+
 class Hopfield_Neural_Network:
 	def __init__(self,nodes,iterations=100,weights=None):
 		self.nodes = nodes
@@ -53,7 +53,7 @@ class Hopfield_Neural_Network:
 			self.weights = weights
 		else:
 			raise ValueError("Dimensions of specified weight array does not match network weight dimensions!")
-'''
+
 
 '''
 def callback_hnn(msg):
@@ -180,7 +180,6 @@ class scalar_sdr:
 		if type(shape) != tuple:
 			raise TypeError("Must provide tuple of array dimensions!")
 		self.ndarray_shape = shape
-
 
 def trigger_callback(msg):
 
@@ -349,6 +348,56 @@ class LAM:
 		else:
 			raise ValueError("Dimensions of specified weight array does not match network weight dimensions!")
 
+def callback_hnn(msg):
+	#print "Brain id msg: %f \n" %msg.brain_id
+	#global lam
+
+	m_encoder = matrix_hnn["matrix_encoder"]
+	b_encoder = matrix_hnn["brain_encoder"]
+	nns = matrix_hnn["hnn"]
+	
+	global new_brain_id
+	new_brain_id = msg.brain_id
+	print new_brain_id
+	hnn_brain_id = {0.: 0.125, 21.:0.375, 42.:0.625, 63.:0.875}
+	brain_sig = b_encoder.encode(float(hnn_brain_id[new_brain_id]))
+
+	data = np.zeros(m_encoder.nodes+b_encoder.nodes)-1
+	data[-b_encoder.n:] = brain_sig
+
+	shape = (6,12)
+	matrix = np.zeros(shape)
+	for index in np.ndindex(shape):
+	    nns[index].setIter(300)
+	    mem = nns[index].recall(data,(0,m_encoder.n))
+	    matrix_out = mem[0:m_encoder.nodes]
+	    matrix_decoded = m_encoder.decode(matrix_out)
+	    matrix[index] = matrix_decoded
+
+	#print matrix
+	flat = matrix.flatten()
+	active_motors = [1,3,4,5,10,12]
+	active_sensors = np.array(active_motors*2)
+	active_sensors[len(active_motors):] += 14
+	matrix = np.zeros((14,28))
+	k = 0
+	for i in active_motors:
+		for j in active_sensors:
+			matrix[i,j] = flat[k]
+			k += 1
+
+	msg = roboy_dep.msg.depMatrix()
+	for i in range(matrix.shape[0]):
+		cArray = roboy_dep.msg.cArray()
+		cArray.cArray = matrix[i,:]
+		cArray.size = matrix.shape[1]
+		msg.depMatrix.append(cArray)
+	msg.size = matrix.shape[0]
+
+	global dep_matrix_msg
+	dep_matrix_msg = roboy_dep.msg.depMatrix()
+	dep_matrix_msg = msg
+
 def callback_lam(msg):
 	#print "Brain id msg: %f \n" %msg.brain_id
 	#global lam
@@ -387,11 +436,25 @@ def callback_lam(msg):
 	dep_matrix_msg = msg
 
 def sensor_delay(id_,reverse=True):
+	global delay
+	#print delay
+	yp = bases[id_][0]
+	xp = np.arange(len(yp))
+	x_interp = np.linspace(0,xp.shape[0],int(xp.shape[0]*delay/50.))
+	y_interp = np.zeros((x_interp.shape[0],yp.shape[1]))
+	for i in range(y_interp.shape[1]):
+	    y_interp[:,i] = np.interp(x_interp,xp,yp[:,i])
+
 	if reverse:
-		i = int(len(bases[id_][0])/2.)
-		pos = bases[id_][0][-delay+i:i]
+		i = int(len(x_interp)/2.)
+		pos = y_interp[-delay+i:i]
+		#i = int(len(bases[id_][0])/2.)
+		#pos = bases[id_][0][-delay+i:i]
+		#pos = np.roll(bases[id_][0],i,axis=0)[-delay:]
 	else:
-		pos = bases[id_][0][-delay:]
+		pos = y_interp[-delay:]
+		#pos = bases[id_][0][-delay:]
+		#pos = np.roll(bases[id_][0],delay,axis=0)[:delay]
 	#pos = np.array([np.sin(np.arange(delay+15)*2*np.pi/len(bases[id_][0])+i*2.*np.pi/14.) for i in range(14)]).T
 	msg = roboy_dep.msg.depMatrix()
 	for i in range(delay):
@@ -440,7 +503,14 @@ def main():
 	global sensor_delay_pub
 	sensor_delay_pub = rospy.Publisher('/roboy_dep/sensor_delay', roboy_dep.msg.depMatrix,queue_size=1)
 
+	'''
+	rospy.Subscriber("roboy_dep/brain_id", roboy_dep.msg.brain_id, callback_hnn, queue_size=1)
+	global matrix_hnn
+	pickle_in = open("/home/roboy/dep/dep_memory/hnns_80.pickle")
+	matrix_hnn = pickle.load(pickle_in)
+	'''
 	rospy.Subscriber("roboy_dep/brain_id", roboy_dep.msg.brain_id, callback_lam, queue_size=1)
+	
 	global matrix_lam
 	pickle_in = open("/home/roboy/dep/dep_memory/mem.pickle")
 	matrix_lam = pickle.load(pickle_in)
