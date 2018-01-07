@@ -65,6 +65,19 @@ def run_script(msg):
 				tran_dir.up = False
 				tran_dir_pub.publish(tran_dir)
 				brain_id = roboy_dep.msg.brain_id()
+				brain_id.brain_id = 63.
+				brain_id_pub.publish(brain_id)
+				print "brain_id: ", brain_id
+				next_behavior = False
+				while(not next_behavior):
+					print "sleeping"
+					time.sleep(0.1)
+				time.sleep(0.5)
+				
+				tran_dir = roboy_dep.msg.transition_direction()
+				tran_dir.up = False
+				tran_dir_pub.publish(tran_dir)
+				brain_id = roboy_dep.msg.brain_id()
 				brain_id.brain_id = 21.
 				brain_id_pub.publish(brain_id)
 				print "brain_id: ", brain_id
@@ -87,6 +100,19 @@ def run_script(msg):
 					time.sleep(0.1)
 				time.sleep(0.5)
 
+				tran_dir = roboy_dep.msg.transition_direction()
+				tran_dir.up = True
+				tran_dir_pub.publish(tran_dir)
+				brain_id = roboy_dep.msg.brain_id()
+				brain_id.brain_id = 63.
+				brain_id_pub.publish(brain_id)
+				print "brain_id: ", brain_id
+				next_behavior = False
+				while(not next_behavior): 
+					print "sleeping"
+					time.sleep(0.1)
+				time.sleep(0.5)
+				
 				tran_dir = roboy_dep.msg.transition_direction()
 				tran_dir.up = True
 				tran_dir_pub.publish(tran_dir)
