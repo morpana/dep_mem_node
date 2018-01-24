@@ -484,18 +484,9 @@ def callback_transition_dir(msg):
 def main():
 	rospy.init_node('dep_memory', anonymous=True)
 	
-	'''
-	rospy.Subscriber("roboy_dep/brain_id", roboy_dep.msg.brain_id, callback_hnn)
-	global hnns
-	pickle_in = open("/home/roboy/dep/dep_memory/hnns_80.pickle")
-	hnns = pickle.load(pickle_in)
-	for index in hnns:
-		hnns[index].setIter(600)
-	'''
-
-	fb = pickle.load(open("/home/roboy/dep/dep_data/bases/fb.pickle"))
-	fs = pickle.load(open("/home/roboy/dep/dep_data/bases/fs.pickle"))
-	sd = pickle.load(open("/home/roboy/dep/dep_data/bases/sd.pickle"))
+	fb = pickle.load(open("../data/bases/fb.pickle")) #this
+	fs = pickle.load(open("../data/bases/fs.pickle")) #this
+	sd = pickle.load(open("../data/bases/sd.pickle")) #this
 	zero = [np.zeros(fb[0].shape),np.zeros(fb[1].shape),np.zeros(fb[2].shape),np.zeros(fb[3].shape)]
 	global bases
 	bases = {"fb": fb, "fs": fs, "sd": sd, "zero": zero}
@@ -506,13 +497,13 @@ def main():
 	'''
 	rospy.Subscriber("roboy_dep/brain_id", roboy_dep.msg.brain_id, callback_hnn, queue_size=1)
 	global matrix_hnn
-	pickle_in = open("/home/roboy/dep/dep_memory/hnns_80.pickle")
+	pickle_in = open("../data/hnns_80.pickle") #this
 	matrix_hnn = pickle.load(pickle_in)
 	'''
 	rospy.Subscriber("roboy_dep/brain_id", roboy_dep.msg.brain_id, callback_lam, queue_size=1)
 	
 	global matrix_lam
-	pickle_in = open("/home/roboy/dep/dep_memory/mem.pickle")
+	pickle_in = open("../data/mem.pickle") #this
 	matrix_lam = pickle.load(pickle_in)
 
 	rospy.Subscriber("/roboy_dep/depParameters", roboy_dep.msg.depParameters, callback_depParam, queue_size = 1)
@@ -520,7 +511,7 @@ def main():
 	delay = 50
 
 	global neurons_pos
-	pickle_in = open("/home/roboy/dep/dep_memory/neurons_pos.pickle")
+	pickle_in = open("../data/neurons_pos.pickle") #this
 	neurons_pos = pickle.load(pickle_in)
 
 	rospy.Subscriber("/roboy/middleware/MotorStatus", roboy_communication_middleware.msg.MotorStatus, trigger_callback, queue_size=1)
@@ -536,7 +527,6 @@ def main():
 	global motors_pos
 	motor_pos = []
 	'''
-	# THIS NEXT
 	#rospy.Subscriber("/roboy/middleware/MotorStatus", roboy_communication_middleware.msg.MotorStatus, trigger_callback_no_nn, queue_size=1)
 
 	'''
@@ -545,6 +535,7 @@ def main():
 	neurons_ind = pickle.load(pickle_in)
 	rospy.Subscriber("/roboy/middleware/MotorStatus", roboy_communication_middleware.msg.MotorStatus, trigger_callback_ind, queue_size=1)
 	'''
+	
 	global dep_matrix_msg
 	dep_matrix_msg = roboy_dep.msg.depMatrix()
 
